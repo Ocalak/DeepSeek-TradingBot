@@ -1,5 +1,5 @@
 # DeepSeek-Trading Bot Design
-##1. Core Features
+##1. Core Features\\
 Data Collection: Fetch real-time and historical data from DexScreener.
 
 Data Parsing: Extract relevant information (e.g., price, volume, liquidity, market cap, etc.).
