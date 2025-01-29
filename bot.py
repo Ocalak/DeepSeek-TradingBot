@@ -9,7 +9,7 @@ def load_config():
     with open("config.json", "r") as f:
         return json.load(f)
 
-# Fetch data
+# Fetch data from DexScreener
 def fetch_dexscreener_data(pair_address):
     url = f"https://api.dexscreener.com/latest/dex/pairs/{pair_address}"
     response = requests.get(url)
@@ -33,29 +33,33 @@ def parse_data(data):
     }
     return parsed
 
-# Detect fake volume using a simple algorithm
-def detect_fake_volume(data):
-    liquidity = data["liquidity"]
-    volume = data["volume"]
-    if liquidity > 0 and volume / liquidity > 10:
-        return True
+# Fetch token data from rugcheck.xyz
+def fetch_rugcheck_data(token_address):
+    url = f"https://rugcheck.xyz/api/tokens/{token_address}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        raise Exception(f"Failed to fetch rugcheck data: {response.status_code}")
+
+# Check if token is marked as "Good" on rugcheck.xyz
+def is_token_good(token_address):
+    rugcheck_data = fetch_rugcheck_data(token_address)
+    return rugcheck_data.get("status", "").lower() == "good"
+
+# Check if token supply is bundled
+def is_supply_bundled(token_address):
+    url = f"https://api.example.com/supply-distribution/{token_address}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        supply_data = response.json()
+        for address, percentage in supply_data.items():
+            if percentage > 50:
+                return True
     return False
 
-# Check fake volume using Pocket Universe API
-def check_fake_volume_with_pocket_universe(pair_address):
-    url = f"https://api.pocketuniverse.io/v1/check-fake-volume?pair_address={pair_address}"
-    headers = {
-        "Authorization": "Bearer YOUR_POCKET_UNIVERSE_API_KEY"
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        result = response.json()
-        return result.get("is_fake_volume", False)
-    else:
-        raise Exception(f"Failed to check fake volume: {response.status_code}")
-
 # Apply filters and blacklists
-def apply_filters_and_blacklists(data, config, use_pocket_universe=False):
+def apply_filters_and_blacklists(data, config):
     if data["liquidity"] < config["filters"]["min_liquidity"]:
         return False
     if abs(data["price_change_24h"]) > config["filters"]["max_price_change_24h"]:
@@ -66,12 +70,14 @@ def apply_filters_and_blacklists(data, config, use_pocket_universe=False):
         return False
     if data["dev_address"] in config["blacklist"]["devs"]:
         return False
-    if use_pocket_universe:
-        if check_fake_volume_with_pocket_universe(data["pair_address"]):
-            return False
-    else:
-        if detect_fake_volume(data):
-            return False
+    if not is_token_good(data["pair_address"]):
+        config["blacklist"]["coins"].append(data["base_token"])
+        config["blacklist"]["devs"].append(data["dev_address"])
+        return False
+    if is_supply_bundled(data["pair_address"]):
+        config["blacklist"]["coins"].append(data["base_token"])
+        config["blacklist"]["devs"].append(data["dev_address"])
+        return False
     return True
 
 # Save to database
@@ -125,13 +131,12 @@ def main():
     data = fetch_dexscreener_data(pair_address)
     parsed_data = parse_data(data)
 
-    # Set `use_pocket_universe=True` to use Pocket Universe API
-    if apply_filters_and_blacklists(parsed_data, config, use_pocket_universe=False):
+    if apply_filters_and_blacklists(parsed_data, config):
         save_to_db(parsed_data)
         anomalies = analyze_data()
         send_alert(anomalies)
     else:
-        print(f"Skipping {parsed_data['base_token']} due to filters, blacklists, or fake volume.")
+        print(f"Skipping {parsed_data['base_token']} due to filters, blacklists, rugcheck, or bundled supply.")
 
 if __name__ == "__main__":
     main()
