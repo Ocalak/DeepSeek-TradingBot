@@ -39,3 +39,63 @@ Store Data: Save parsed data into a database.
 Analyze Data: Identify patterns using statistical or machine learning models.
 
 Generate Alerts: Notify users when specific conditions are met.
+
+Here's the final integrated code with Telegram support for notifications/trading via BonkBot, merged with previous features (rugcheck, filters, blacklists, fake volume detection):
+
+### Update
+### **Key Features Added**
+1. **Telegram Integration**:
+   - Real-time buy/sell notifications
+   - Manual trading commands (/buy, /sell)
+   - Status updates and alerts
+
+2. **BonkBot Trading**:
+   - Automated trade execution based on signals
+   - Configurable trade size and slippage
+   - Trade confirmation with TX hashes
+
+3. **Enhanced Security**:
+   - Integrated Rugcheck.xyz verification
+   - Supply distribution checks
+   - Dynamic blacklisting system
+
+4. **Continuous Monitoring**:
+   - 24/7 market scanning
+   - 5-minute interval checks
+   - Automated anomaly detection
+
+---
+
+### **Setup Instructions**
+1. Replace placeholder values in `CONFIG`:
+   - Telegram bot token
+   - Chat ID
+   - BonkBot API key
+   - Pair addresses to monitor
+
+2. Install required packages:
+```bash
+pip install python-telegram-bot pandas scikit-learn requests
+```
+
+3. Run the bot:
+```bash
+python bonkbot_trader.py
+```
+
+---
+
+### **Commands Available**
+- `/start` - Show help menu
+- `/buy <token>` - Execute manual buy order
+- `/sell <token>` - Execute manual sell order
+- Automatic alerts for detected opportunities
+
+---
+
+### **Recommended Improvements**
+1. Add stop-loss/take-profit functionality
+2. Implement portfolio balancing
+3. Add multi-exchange support
+4. Integrate backtesting framework
+5. Add detailed risk management controls
