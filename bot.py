@@ -1,88 +1,36 @@
 import requests
 import sqlite3
 import pandas as pd
-from sklearn.ensemble import IsolationForest
 import json
+import asyncio
+from telegram import Bot, Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from sklearn.ensemble import IsolationForest
 
-# Load config
-def load_config():
-    with open("config.json", "r") as f:
-        return json.load(f)
-
-# Fetch data from DexScreener
-def fetch_dexscreener_data(pair_address):
-    url = f"https://api.dexscreener.com/latest/dex/pairs/{pair_address}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise Exception(f"Failed to fetch data: {response.status_code}")
-
-# Parse data
-def parse_data(data):
-    parsed = {
-        "pair_address": data["pairAddress"],
-        "base_token": data["baseToken"]["name"],
-        "quote_token": data["quoteToken"]["name"],
-        "price": data["priceUsd"],
-        "volume": data["volume"]["h24"],
-        "liquidity": data["liquidity"]["usd"],
-        "market_cap": data["fdv"],
-        "price_change_24h": data["priceChange"]["h24"],
-        "dev_address": data["baseToken"]["address"]
+# Load configuration
+CONFIG = {
+    "telegram": {
+        "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+        "chat_id": "YOUR_TELEGRAM_CHAT_ID"
+    },
+    "filters": {
+        "min_liquidity": 10000,
+        "max_price_change_24h": 100,
+        "min_volume": 50000
+    },
+    "blacklist": {
+        "coins": ["RugCoin", "ScamToken"],
+        "devs": ["0xBadDevAddress1", "0xBadDevAddress2"]
+    },
+    "bonkbot": {
+        "api_key": "YOUR_BONKBOT_API_KEY",
+        "trade_size": 0.1  # ETH
     }
-    return parsed
+}
 
-# Fetch token data from rugcheck.xyz
-def fetch_rugcheck_data(token_address):
-    url = f"https://rugcheck.xyz/api/tokens/{token_address}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        raise Exception(f"Failed to fetch rugcheck data: {response.status_code}")
-
-# Check if token is marked as "Good" on rugcheck.xyz
-def is_token_good(token_address):
-    rugcheck_data = fetch_rugcheck_data(token_address)
-    return rugcheck_data.get("status", "").lower() == "good"
-
-# Check if token supply is bundled
-def is_supply_bundled(token_address):
-    url = f"https://api.example.com/supply-distribution/{token_address}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        supply_data = response.json()
-        for address, percentage in supply_data.items():
-            if percentage > 50:
-                return True
-    return False
-
-# Apply filters and blacklists
-def apply_filters_and_blacklists(data, config):
-    if data["liquidity"] < config["filters"]["min_liquidity"]:
-        return False
-    if abs(data["price_change_24h"]) > config["filters"]["max_price_change_24h"]:
-        return False
-    if data["volume"] < config["filters"]["min_volume"]:
-        return False
-    if data["base_token"] in config["blacklist"]["coins"]:
-        return False
-    if data["dev_address"] in config["blacklist"]["devs"]:
-        return False
-    if not is_token_good(data["pair_address"]):
-        config["blacklist"]["coins"].append(data["base_token"])
-        config["blacklist"]["devs"].append(data["dev_address"])
-        return False
-    if is_supply_bundled(data["pair_address"]):
-        config["blacklist"]["coins"].append(data["base_token"])
-        config["blacklist"]["devs"].append(data["dev_address"])
-        return False
-    return True
-
-# Save to database
-def save_to_db(data):
-    conn = sqlite3.connect("crypto_data.db")
+# Database setup
+def init_db():
+    conn = sqlite3.connect('crypto_data.db')
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS dex_data (
@@ -97,17 +45,81 @@ def save_to_db(data):
             dev_address TEXT
         )
     ''')
-    cursor.execute('''
-        INSERT OR REPLACE INTO dex_data VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        data["pair_address"], data["base_token"], data["quote_token"],
-        data["price"], data["volume"], data["liquidity"],
-        data["market_cap"], data["price_change_24h"], data["dev_address"]
-    ))
     conn.commit()
     conn.close()
 
-# Analyze data
+init_db()
+
+# DexScreener API interactions
+def fetch_dexscreener_data(pair_address):
+    url = f"https://api.dexscreener.com/latest/dex/pairs/{pair_address}"
+    response = requests.get(url)
+    return response.json() if response.status_code == 200 else None
+
+def parse_data(data):
+    return {
+        "pair_address": data["pairAddress"],
+        "base_token": data["baseToken"]["name"],
+        "quote_token": data["quoteToken"]["name"],
+        "price": data["priceUsd"],
+        "volume": data["volume"]["h24"],
+        "liquidity": data["liquidity"]["usd"],
+        "market_cap": data["fdv"],
+        "price_change_24h": data["priceChange"]["h24"],
+        "dev_address": data["baseToken"]["address"]
+    }
+
+# Security checks
+def rugcheck(token_address):
+    url = f"https://rugcheck.xyz/api/tokens/{token_address}"
+    response = requests.get(url)
+    return response.json().get("status", "").lower() == "good" if response.status_code == 200 else False
+
+def check_supply(token_address):
+    url = f"https://api.example.com/supply-distribution/{token_address}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return max(response.json().values()) < 50
+    return False
+
+# Trading engine
+async def execute_trade(action, token, amount):
+    """Execute trade through BonkBot"""
+    url = "https://api.bonkbot.com/trade"
+    headers = {"Authorization": f"Bearer {CONFIG['bonkbot']['api_key']}"}
+    payload = {
+        "action": action,
+        "token": token,
+        "amount": amount,
+        "slippage": 2
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    return response.json()
+
+# Telegram bot handlers
+async def start(update: Update, context):
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="BonkBot Trader Active\nCommands:\n/status - Check bot status\n/buy <token> - Execute buy order\n/sell <token> - Execute sell order"
+    )
+
+async def handle_buy(update: Update, context):
+    token = ' '.join(context.args)
+    result = await execute_trade("buy", token, CONFIG['bonkbot']['trade_size'])
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"🟢 BUY ORDER EXECUTED\nToken: {token}\nAmount: {CONFIG['bonkbot']['trade_size']} ETH\nTxHash: {result['tx_hash']}"
+    )
+
+async def handle_sell(update: Update, context):
+    token = ' '.join(context.args)
+    result = await execute_trade("sell", token, CONFIG['bonkbot']['trade_size'])
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=f"🔴 SELL ORDER EXECUTED\nToken: {token}\nAmount: {CONFIG['bonkbot']['trade_size']} ETH\nTxHash: {result['tx_hash']}"
+    )
+
+# Analysis and monitoring
 def analyze_data():
     conn = sqlite3.connect("crypto_data.db")
     df = pd.read_sql_query("SELECT * FROM dex_data", conn)
@@ -115,28 +127,37 @@ def analyze_data():
 
     model = IsolationForest(contamination=0.1)
     df["anomaly"] = model.fit_predict(df[["price_change_24h", "volume", "liquidity"]])
-    anomalies = df[df["anomaly"] == -1]
-    return anomalies
+    return df[df["anomaly"] == -1]
 
-# Send alerts
-def send_alert(anomalies):
-    for _, row in anomalies.iterrows():
-        print(f"ALERT: Anomaly detected for {row['base_token']}/{row['quote_token']}!")
-        print(f"Price Change: {row['price_change_24h']}%, Volume: {row['volume']}, Liquidity: {row['liquidity']}")
+async def monitor_markets():
+    bot = Bot(token=CONFIG['telegram']['bot_token'])
+    while True:
+        pairs = ["0x...pair1", "0x...pair2"]  # Add pair addresses to monitor
+        for pair in pairs:
+            data = fetch_dexscreener_data(pair)
+            if data and rugcheck(data['baseToken']['address']) and check_supply(data['baseToken']['address']):
+                parsed = parse_data(data)
+                anomalies = analyze_data()
+                
+                if not anomalies.empty:
+                    message = f"🚨 TRADE SIGNAL DETECTED\nToken: {parsed['base_token']}\nPrice: ${parsed['price']}\nVolume: {parsed['volume']}"
+                    await bot.send_message(chat_id=CONFIG['telegram']['chat_id'], text=message)
+                    await execute_trade("buy", parsed['base_token'], CONFIG['bonkbot']['trade_size'])
+        
+        await asyncio.sleep(300)  # Check every 5 minutes
 
-# Main function
-def main():
-    config = load_config()
-    pair_address = "0x...your_pair_address_here..."  # Replace with actual pair address
-    data = fetch_dexscreener_data(pair_address)
-    parsed_data = parse_data(data)
-
-    if apply_filters_and_blacklists(parsed_data, config):
-        save_to_db(parsed_data)
-        anomalies = analyze_data()
-        send_alert(anomalies)
-    else:
-        print(f"Skipping {parsed_data['base_token']} due to filters, blacklists, rugcheck, or bundled supply.")
-
-if __name__ == "__main__":
-    main()
+# Main application
+if __name__ == '__main__':
+    application = Application.builder().token(CONFIG['telegram']['bot_token']).build()
+    
+    # Register handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("buy", handle_buy))
+    application.add_handler(CommandHandler("sell", handle_sell))
+    
+    # Start market monitoring
+    loop = asyncio.get_event_loop()
+    loop.create_task(monitor_markets())
+    
+    # Run bot
+    application.run_polling()
