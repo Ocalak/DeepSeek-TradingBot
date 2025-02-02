@@ -1,4 +1,4 @@
-# DeepSeek-Trading Bot Design
+# Trading Bot Design
 ## 1. Core Features
 Data Collection: Fetch real-time and historical data from DexScreener.
 
