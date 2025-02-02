@@ -116,11 +116,16 @@ pm2 start bonkbot_trader.py --name "BonkBot"
 
 4. First-Time Setup Checklist
 
-✅ Test Telegram notifications with /start
-✅ Verify DexScreener data parsing
-✅ Do a test trade with 0.01 ETH
-✅ Confirm database entries
-✅ Check security filters with known scam token
+- ✅ Test Telegram notifications with /start
+
+- ✅ Verify DexScreener data parsing
+
+- ✅ Do a test trade with 0.01 ETH
+
+- ✅ Confirm database entries
+
+- ✅ Check security filters with known scam token
+
 ---
 5. Key Commands
 
