@@ -99,3 +99,10 @@ python bonkbot_trader.py
 3. Add multi-exchange support
 4. Integrate backtesting framework
 5. Add detailed risk management controls
+
+---
+
+*** If you want to leave a tip, you can send it to the following address(SOL):
+GV5RqggAEKRWqUM7jmZ9GB6G7MvFijYNged7eVkeZ9iW
+
+
