@@ -130,10 +130,11 @@ pm2 start bonkbot_trader.py --name "BonkBot"
 5. Key Commands
 
 Telegram Command	Action
-/start	Show help menu
-/buy SHIB	Buy token
-/sell PEPE	Sell token
-/status	Check portfolio
+
+- /start	Show help menu
+- /buy SEEK	Buy token
+- /sell HOOD	Sell token
+- /status	Check portfolio
 
 
 6. Next-Level Customization
