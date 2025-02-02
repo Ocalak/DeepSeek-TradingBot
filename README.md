@@ -190,4 +190,6 @@ def check_contract_verified(token_address):
 *** If you want to leave a tip, you can send it to the following address(SOL):
 GV5RqggAEKRWqUM7jmZ9GB6G7MvFijYNged7eVkeZ9iW
 
+### **Disclamer
+The Trading Bot is provided as is, for learning purposes. Trading cryptocurrencies and tokens involves risk, and past performance is not indicative of future results. The use of this bot is at your own risk, and we are not responsible for any losses incurred while using the bot.
 
