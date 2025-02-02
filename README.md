@@ -40,9 +40,7 @@ Analyze Data: Identify patterns using statistical or machine learning models.
 
 Generate Alerts: Notify users when specific conditions are met.
 
-Here's the final integrated code with Telegram support for notifications/trading via BonkBot, merged with previous features (rugcheck, filters, blacklists, fake volume detection):
-
-### Update
+### Updated
 ### **Key Features Added**
 1. **Telegram Integration**:
    - Real-time buy/sell notifications
@@ -160,10 +158,10 @@ def check_contract_verified(token_address):
 
 8. Recommended Workflow
 
-Test Mode: Run with small amounts (0.01-0.05 ETH/SOL)
-Monitor First: Let it analyze without trading for 24h
-Gradual Scaling: Increase position sizes after confirmation
-Daily Review: Check blacklist updates and config tuning
+-Test Mode: Run with small amounts (0.01-0.05 ETH/SOL)
+-Monitor First: Let it analyze without trading for 24h
+-Gradual Scaling: Increase position sizes after confirmation
+-Daily Review: Check blacklist updates and config tuning
 
 
 
