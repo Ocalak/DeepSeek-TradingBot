@@ -158,10 +158,14 @@ def check_contract_verified(token_address):
 
 8. Recommended Workflow
 
--Test Mode: Run with small amounts (0.01-0.05 ETH/SOL)
+-Test Mode: Run with small amounts (0.01-0.05 ETH/SOL) 
+
 -Monitor First: Let it analyze without trading for 24h
+
 -Gradual Scaling: Increase position sizes after confirmation
+
 -Daily Review: Check blacklist updates and config tuning
+
 
 
 
