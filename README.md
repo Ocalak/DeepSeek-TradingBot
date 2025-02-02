@@ -77,13 +77,90 @@ Here's the final integrated code with Telegram support for notifications/trading
 ```bash
 pip install python-telegram-bot pandas scikit-learn requests
 ```
+```
+{
+  "telegram": {
+    "bot_token": "YOUR_TELEGRAM_BOT_TOKEN",
+    "chat_id": "YOUR_CHAT_ID"
+  },
+  "dex_pairs": ["0x...pair1", "0x...pair2"],
+  "bonkbot": {
+    "api_key": "YOUR_BONKBOT_KEY",
+    "trade_size": 0.1
+  }
+}
+
+```
+
+# Run this once before starting the bot
+```
+import sqlite3
+conn = sqlite3.connect('crypto_data.db')
+conn.close()
+```
+
 
 3. Run the bot:
 ```bash
 python bonkbot_trader.py
 ```
 
+```
+#Use nohup to keep running after logout
+nohup python3 bonkbot_trader.py > bot.log 2>&1 &
+```
+```
+# Or use pm2 process manager
+pm2 start bonkbot_trader.py --name "BonkBot"
+```
+
+4. First-Time Setup Checklist
+
+✅ Test Telegram notifications with /start
+✅ Verify DexScreener data parsing
+✅ Do a test trade with 0.01 ETH
+✅ Confirm database entries
+✅ Check security filters with known scam token
 ---
+5. Key Commands
+
+Telegram Command	Action
+/start	Show help menu
+/buy SHIB	Buy token
+/sell PEPE	Sell token
+/status	Check portfolio
+
+
+6. Next-Level Customization
+
+```
+# Add to config.json
+"dex_sources": ["uniswap", "pancakeswap", "sushiswap"]
+```
+```
+# Add to security checks
+def check_contract_verified(token_address):
+    url = f"https://api.etherscan.io/api?module=contract&action=getsourcecode&address={token_address}"
+    response = requests.get(url)
+    return response.json()["result"][0]["SourceCode"] != ""
+```
+```
+# Add to config.json
+"risk_management": {
+  "max_drawdown": 15,  # %
+  "daily_trade_limit": 5
+}
+```
+
+8. Recommended Workflow
+
+Test Mode: Run with small amounts (0.01-0.05 ETH/SOL)
+Monitor First: Let it analyze without trading for 24h
+Gradual Scaling: Increase position sizes after confirmation
+Daily Review: Check blacklist updates and config tuning
+
+
+
 
 ### **Commands Available**
 - `/start` - Show help menu
